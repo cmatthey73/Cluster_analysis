@@ -1,0 +1,719 @@
+---
+title: "Cluster analysis"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Introduction
+
+* Categorization :
+    + Technique-centered : distance-based (partitioninig, hierarchical), density-based (+grid-based), probabilistic, ....
+    + Data type-centered : num, categ, text, multimedia, network, time series,...
+    + Additional insight-centered : visual insights, semi-supervised, ensemble-based, validation-based
+
+##  Similarity Measures
+
+* Good clustering :
+    + High intra-class similarity (cohesion)
+    + Low inter-class similarity (distinction)
+* Similarity measure/function : higher value = more alike (often in the range [0 ; 1])
+* Dissimilarity/distance measure : +/- inverse of similarity, lower value = more alike (often in the range [0 ; 1] or [0 ; $\infty$])
+
+### Distance numeric data (Minkowski)
+
+* Data matrix : n data points (rows), d dimensions/attributes (columns)
+* Dissimilarity matrix : n x n, with distances d(i, j) => usually symmetric, triangular
+* Minkowski : $\sqrt[p]{\sum_{d}{|x_{i,d}-x_{j,d}|^{p}}}$
+* Properties (=> metric) :
+    + positivity : > 0 if i not j, = 0 if i
+    + symmetry : d(i,j) = d(j,i)
+    + triangle inequality : d(i,j) <= d(i,m) + d(m,j)
+* Special cases :
+    + Manhattan : p = 1 (Hamming = Manhattan but with bits)
+    + Euclidean : p = 2
+    + Supremum distance : p = $\infty$ => max distance for 1 attribute $max|x_{i,d}-x_{j,d}|$
+
+### Proximity for symmetric/asymmetric binary variables
+
+* Contingency table (d attributes with binary values) : rows = 1/0, columns = 1/0, row X column = nb of attributes where value row and value column observed NB : d attributes => total table = d 
+* Symmetric : distance =  nb different / nb tot
+* Asymmetric : distance = nb different / nb tot (without 0-0 case)
+* Jaccard coefficient (similarity for asym.) : nb same(without 0-0 case) / nb tot(without 0-0 case)
+
+### Distance between Categorical Attributes Ordinal Attributes and Mixed Types
+
+* Categorical attributes : 
+        + method 1 : nb missmatches / nb tot
+        + method 2 : binary attribute for each of the categories => cf binary variables
+* Ordinal variables :
+        + replace value by interval-scaled variable [0 ; 1] : (rank-1) / (max(rank) -1)
+        + distance = abs difference in i.s. variable
+* Mixed types :
+        + weighted average of the distances
+        
+### Proximity between 2 vectors (cosine)
+
+* Text document => bag of words, each attribute = word / value = frequency => vector of frequencies
+* Cosine : $cos(d1, d2)=\frac{d1\cdot d2}{||d1||\times||d2||}$, $||d1||$ = length of d1 = $\sum_{i}d1_{i}^{2}$$
+* Dot product d1,d2 = $\sum_{i}{(d1_{i}\times d2_{i})}$
+
+### Correlation between 2 variables
+
+* Correlation coeff = covar(x1,x2) / std(x1)*std(x2)
+
+```{r module1, echo=F, results="hide"}
+
+## quizz lesson2
+
+# q1
+manh1<-abs(4.9-5.6)+abs(3-2.5)+abs(1.4-3.9)+abs(0.2-1.1)
+sup1<-max(abs(4.9-5.6),abs(3-2.5),abs(1.4-3.9),abs(0.2-1.1))
+
+#q2
+t<-data.frame(c1=c(0,1,1,0,0,0,1,1,1,1),
+              c2=c(0,1,0,0,1,0,1,0,0,1)
+)
+addmargins(table(t$c1, t$c2)) # contingency table
+distbin<-4/7
+
+#q3
+
+#q4
+
+ a<-c(0.8, 0.6)
+ 
+ b<-list(b1=c(0.8, -0.6),
+         b2=c(6, 8),
+         b3=c(-0.8, -0.6),
+         b4=c(16, 12)
+          )
+
+for (i in b)
+{
+    print(sum(a*i)/(sum(a**2)*sum(i**2)))
+}
+ 
+a<-c(0.8, 0.6)
+ 
+b<-list(b1=c(-0.8, -0.6),
+         b2=c(6, 8),
+         b3=c(0.8, 0.7),
+         b4=c(32, 24)
+          )
+
+for (i in b)
+{
+    print(sum(a*i)/(sum(a**2)*sum(i**2)))
+}
+ 
+#q5
+library(stringr)
+ 
+t1<-c("one sees clearly only with the heart anything essential is invisible to the eyes")
+t2<-c("let my soul smile through my heart and my heart smile through my eyes that I may scatter rich smiles in sad hearts")
+
+t1<-unlist(str_split(t1, "\\s"))
+t2<-unlist(str_split(t2, "\\s"))
+
+t<-unique(c(t1,t2))
+t1_t<-vector()
+t2_t<-vector()
+
+for (i in seq_along(t)){
+    # t1_t[i]<-sum(t[i] %in% t1)
+    # t2_t[i]<-sum(t[i] %in% t2)
+    t1_t[i]<-sum(t1==t[i])
+    t2_t[i]<-sum(t2==t[i])
+}
+
+t<-data.frame(t, t1_t, t2_t)
+    
+sum(t1_t*t2_t)/(sum(t1_t**2)*sum(t2_t**2))  
+
+t1<-c("language is the source of misunderstandings")
+t2<-c("language is the soul of a nation")
+
+t1<-unlist(str_split(t1, "\\s"))
+t2<-unlist(str_split(t2, "\\s"))
+
+t<-unique(c(t1,t2))
+t1_t<-vector()
+t2_t<-vector()
+
+for (i in seq_along(t)){
+    # t1_t[i]<-sum(t[i] %in% t1)
+    # t2_t[i]<-sum(t[i] %in% t2)
+    t1_t[i]<-sum(t1==t[i])
+    t2_t[i]<-sum(t2==t[i])
+}
+
+t<-data.frame(t, t1_t, t2_t)
+    
+sum(t1_t*t2_t)/(sum(t1_t**2)*sum(t2_t**2))  
+
+
+
+#q6
+
+a<-c(5.1, 4.9, 4.7, 4.6, 5.0)
+b<-c(3.5, 3.0, 3.2, 3.1, 5.4)
+cor(a, b)
+
+```
+
+##  Partitioning-Based Clustering Methods
+
+* K-partitioning : group n obs in K groups/clusters => optimize objective function e.g. $SSE(C)=\sum_{k=1}^{K}\sum_{i\in k}||x_{i}-c_{k}||^{2}$ 
+* $c_{k}$ is the centroid/medoid of cluster $C_{k}$
+* Problem = given K, the number of clusters, we want to find a partition of these K clusters that optimize the chosen partitioning criterion, for example, the sum of square distance
+* Heuristic : K-means, K-medians, K-medoids => local min/max (global if all partitions tested......)
+
+### K-means
+
+* Each cluster represented by its center (centroid)
+* Step 1 : define K points as centroids
+* Steps 2 - ... : iterate until convergence criterion
+    + assign points to closest centroid (distance measure)
+    + recompute centroids (means)
+* SSE can only improve at each iteration, algo efficient
+* **Local optimum** => initialization important
+* Need to specify K => often best selected over a range of values
+* Sensitivity to noise/outliers => K-medians, K-medoids
+* Only works with continuous data => categorical : K-modes
+* Not OK with non-convex/non-circular shapes => density-based, kernel K-means, ...
+* Variants : K-means++, K-medians, K-modes,...
+* Feature transformation techniques to cluster non-convex shapes : weighted K-means, kernel K-means
+* Initalization :
+    + Different initializations may generate rather different clustering results, some may lead to poor results
+    + Multiple random starts => best SSE
+    + K-means++ : 1st centroid random, others as far as possible
+* K-medoids (e.g. PAM) :
+    + Medoid = most centrally located **point**
+    + Compute new medoid : iterate
+        + select point randomly, check if better medoid (SSE)
+        + if yes, replace medoid and reassign points
+    + Cannot scale well !
+    + To improve efficiency : CLARA (PAM on sample), CLARAS (partial resampling at each iteration)
+* K-medians, K-modes :
+    + K-medians : less sensitive to outliers 
+            + Median of cluster as centroid (median of each dimension => not always an existing point !)
+            + Distance = Manhattan
+            + Criterion function : sum(absolute distances) $\sum_{k}\sum_{i\in k}\sum_{d}{|x_{i,d}-med_{k,d}|}$
+    + K-modes : modes instead of means
+        + Distance measure frequency based, for 1 attribute d :
+            + if $x_{d}<>c_{d}$ : $1$
+            + if $x_{d}=c_{d}$ : $1-\frac{n_{d}^{r}}{n_{d}}$, 1-part obs avec même valeur r
+    + others : fuzzy K-modes, K-Prototype
+* Kernel K-means : ---- A REVOIR ----
+    + for clusters not linearly separable => project data onto high-dim kernel space (kernel function)
+    + need to compute n x n kernel matrix
+    + kernel functions : polynomial, gaussian radial basis, sigmoid
+    + K-means applied to n x n kernel matrix
+    
+```{r eval=F}
+
+#q1
+c<-list(c1=c(0,1),
+         c2=c(2,1),
+         c3=c(-1,2)
+)
+
+p1<-c(0.5,0.5)
+p2<-c(-0.5,0)
+
+lapply(c, function(x) {sum((x-p1)**2)})
+lapply(c, function(x) {sum((x-p2)**2)})
+
+#q2
+c(mean(0, 2, -2), mean(3,1,2))
+
+#q3
+c<-list(c1=c(3,0),
+         c2=c(2,-2),
+         c3=c(0,1),
+        c4=c(-2,1))
+
+p1<-c(0,0)
+lapply(c, function(x) {sum((x-p1)**2)})
+
+#q4
+c(median(0, 2, -2), median(3,1,2))
+
+#ex program
+
+library(ggplot2)
+library(dplyr)
+
+places<-read.table("G:/Documents/Christophe/Coursera/Cluster_analysis/places.txt", sep=",")
+colnames(places)<-c("long", "lat")
+places$id<-0:(nrow(places)-1)
+plot(places$long, places$lat)
+
+km<-function(df=places, k=3, s=100, max=F){
+    set.seed(s)
+    comp<-function(df=df, init){
+        comp<-matrix(rep(NA, nrow(df)*nrow(init)), nrow(df), nrow(init))
+        for (i in 1:nrow(df)){
+            for (j in 1:nrow(init)){
+                comp[i,j]<-sum((df[i, c("long", "lat")]-init[j,])**2)
+            }
+        }
+        return(as.data.frame(comp))
+    }
+    
+    if (max){
+              # init max distance
+              init<-as.data.frame(matrix(rep(NA, 2*k), ncol=2))
+              init[1,]<-df[sample(1:nrow(df), 1, replace = F), c("long", "lat")] # 1er centroid au hasard
+              for (i in 2:k){
+                          dst<-comp(df=df, init=init)
+                          dst$sum<-unlist(apply(comp(df=df, init=init),1, sum, na.rm=T))
+                          dst<-cbind(dst, df)
+                          init[i,]<-df[which.max(dst$sum), c("long", "lat")]
+              }
+              colnames(init)<-c("long", "lat")
+    } else {
+              # init hasard
+              init<-df[sample(1:nrow(df), k, replace = F), c("long", "lat")] # init = 3 points au hasard  
+    }
+
+    # plot(places$long, places$lat)
+    # points(init$long, init$lat, col="red", cex=2)
+
+    dst_init<-comp(df=df, init=init)
+    k_init<-apply(dst_init, 1, which.min)-1
+    sse<-sum(apply(dst_init, 1, min))
+    sse_init<-sum(apply(dst_init, 1, min))
+    sse_start<-1000000000 # artificiel, but = lancer 1ère boucle
+    df$cl_init<-k_init
+    df$cl<-k_init
+    # plot(df$long,df$lat, col=(1+df$cl_init))
+    it<-0
+    
+    while(sse<(sse_start-10)){ # voir comment débuter !!
+        sse_start<-sse  
+        new_c<-df %>% group_by(cl) %>% summarise(long=mean(long), lat=mean(lat)) %>% dplyr::select(long, lat) %>% ungroup()
+        new_dst<-comp(df=df, init=new_c)
+        new_k<-apply(dst_init, 1, which.min)-1
+        df$cl<-new_k
+        sse<-sum(apply(new_dst, 1, min))
+        # print(sum(df$cl_init!=df$cl))
+        # plot(df$long,df$lat, col=(1+df$cl))
+        it<-it+1
+        # print(it)
+          
+    }
+    return(list(data=df, sse=sse, sse_init=sse_init, nb_it=it))
+    
+    
+}
+
+cl<-list()
+for (i in 1:50){
+  s<-i*5-52
+  cl[[i]]<-km(places, k=3, s=s)
+}
+
+best<-cl[[which.min(unlist(lapply(cl, function(x) x$sse)))]]
+plot(best$data$long,best$data$lat, col=(1+best$data$cl))
+best$sse
+best$sse_init
+a<-best$data
+nb_it<-unlist(lapply(cl, function(x) x$nb_it))
+ev_sse<-do.call(rbind, lapply(cl, function(x) x[c("sse_init", "sse")]))
+
+write.table(best$data[,c("id", "cl")], file = "./clusters.txt", sep = " ", row.names = F, col.names = F)
+
+```
+
+```{r}
+places<-read.table("./places.txt", sep=",")
+colnames(places)<-c("long", "lat")
+cl<-read.table("./clusters.txt", sep = " ")
+table(places$cl, useNA="always")
+
+places<-data.frame(places, cl=cl[,2])
+plot(places$long,places$lat, col=(1+places$cl))
+
+```
+
+
+##  Hierarchical Clustering Methods
+
+* Clustering hierarchy through merges (agglomerative) or splits (divisive) => graph representation = dendogramm
+* K not defined a priori (hierarchy = several levels for K)
+
+### Agglomerative (AGNES)
+
+* Bottom-up : 
+    + start = single obj clusters => continuously merge nodes with least dissimilarity
+    + end = 1 cluster (all in the same)
+* Similarity measures :
+    + single link : distance between nearest neighbours (points within cluster)
+        + local similarity-based
+        + ignores overall structure of cluster
+        + sensitive to noise/outliers
+    + complete link : distance between farthest neighbours (points within cluster) / diameter
+        + result = new cluster with smalles diameter
+        + nonlocal behavior, compact shaped clusters
+        + sensitive to noise/outliers
+    + average link : average distance between all points
+        + expensive to compute
+    + centroid link : distance between centroids
++ Group averaged agglomerative clustering (GAAC) : at each step, centroid of new cluster = weighted mean of centroids of previous clusters
++ Ward's criterion : loss in SSSE when agregating, for clusters a and b, $\frac{N_{a}\cdot N_{b}}{N_{a}+N_{b}}d(C_{a}, C_{b})$
+
+### Divisive (DIANA)
+
+* Top-down : 
+    + start = 1 cluster 
+        + continuously split cluster with largest SSE
+        + how to split : Ward's criterion, Gini-index
+    + end = 1 cluster (or termination criterion)
+    + global approach, more efficient
+    + handling noise : termination criterion to avoid too small clusters (only noise)
+
+### Extensions
+
+* Major issues
+    + sequential, previous stage cannot be undone
+    + do not scale well
+* Extensions : BIRCH (1996), CURE (1998), CHAMELEON (1999)
+
+### BIRCH 
+
+**TOUTE LA SUITE A REVOIR**
+
+* Multiphase, incrementally construct a CF (Clustering Featur) tree
+    + Phase 1 : build initial CF tree
+    + Phase 2 : use an arbitrary clustering algo on the leaves
+* Scales linearly
+* For 1 cluster, CF = 3 components : 
+    + number of data points
+    + linear sum of points for each feature/dimension
+    + square sum of points for each feature/dimension
+* 3 measures of clusters can be computed from CF (efficiency in storage) :
+    + centroid = sum of points / nb 
+    + diameter = avg distance from points to the centroid (squared !)
+    + radius = avg pairwise distance within cluster
+* CF are additive 
+* CF tree structure :
+    + for each new point
+        + add to closest leaf, update CF
+        + if diameter > max_diameter, split leaf and possibly parents
+    + 2 parameters :
+        + branching factor = max nb of children
+        + max diameter of subclusters at the leaf nodes
+* Concerns :
+    + tree is still sensitive to the insertion order of the data points
+    + since the leaf nodes has a fixed size, the clustering obtained may not be as natural
+    + the clusters tend to be spherical given the radius and diameter measure as the major parameters
+
+### CURE
+
+* CURE actually represents a cluster using a set of well scattered representative points
+* Cluster distance : min between representative points chosen
+    + characteristics of single- and average-linking
+* Shrinking factor $\alpha$ towards centroid
+    + Impact of outliers lower
+
+### CHAMELEON
+
+* Graph partitionning based on k-NN graph of the data
+* Agglo hierarch algo :
+    + clusters merged only if interconnectivity + proximity between clusters high relative to interconnectivity + proximity within clusters
+        + above threshold
+        + max function that combines both
+    + start = graphlets based on k-NN graphs (each point connected with k closest points)
+* Interconnectivity = sum weights(edges)
+* Proximity = avg weights(edges)
+* Can cluster complex objects
+
+### Probabilistic hierarchical
+
+* Problems with hierarchical algos :
+    + choice of distance measure
+    + hard to handle missing values
+    + optimization goal not clear (heuristic)
+* Probabilistic model to measure distance
+* Data = generative model based on common distribution functions => max likelihood !
+* Quality of clustering = likelihood clustering ($\prod_{k}L(C_{k})$)
+* Distance betwween clusters : $d(C_{1}, C_{2})=-log(\frac{L(C_{1}\cup C_{2})}{L(C_{1})L(C_{2})})$, where L = maxlikelihood => merge if d(C1,C2) < 0
+
+##  Density-based Clustering Methods
+
+* Density-based :
+    + local cluster criterion
+    + discover clusters of arbitrary shapes
+    + can handle noise
+    + only examine local region to justify density
+    + need density parameter as termination criterion
+    
+### DBSCAN
+
+* Cluster = max set of density-connected points
+* 2 params : 
+    + eps = max radius of neighbourhood
+    + minpts = min points in the neighbourhood
+    + Eps-neighbourhood : $N_{eps}(q)\{ p | dist(p,q) \le eps\}$
+* Core point : dense neighborhood (Eps-neighbourhood >= minpts)
+* Border point : in cluster but not dense (*dr* from core point)
+* Outlier/noise : not in any cluster
+* Concepts :
+    + directly density-reachable (*ddr*) : p *ddr* from q if 
+        + p belongs to $N_{eps}(q)$ 
+        + q is a core point
+    + density-reachable (*dr*) : p *dr* from q if chain of points $p_{1}$=q, .... $p_{n}$=p so that $p_{i+1}$ is *ddr* from $p_{i}$
+      NB : $p_{i}$ is a core point and $p_{i+1}$ belongs to $N_{eps}(p_{i})$ => all $p_{i=1,...n-1}$ are core points !
+    + density-connected (*dc*) : p *dc* to q if point o so that p and r *dr* from o
+      NB : point o is a core point as well as all points between o and p / between o and q
+* Algo :
+    + Randomly select p
+    + Find all points *dr* from p
+        + if p is a core point, cluster with all *dr* points
+        + if p not a core point, no *dr* points => start with next point not clustered
+    + Continue until all points have been processed
+* Algo :
+    + Efficient
+    + Sensitive to setting of params
+
+### OPTICS
+
+**TOUTE LA SUITE A REVOIR**
+
+* Ordering Points To Identify Clustering Structures
+* DBSCAN extended to be less sensitive to params
+* Given minpts, higher-density clusters completely contained in clusters with lower density
+* Higher density points should be treated first
+* 2 infos for each point to store clustering structure : 
+    + core distance : smallest eps to reach minpts for p
+    + reachability distance (of p from core q) : min eps that makes p *dr* from q => 
+        + undefined if q not a core 
+        + else max(core-dist(q), dist(p,q))
+* Reachability plot (objects vs reachability distance) : valley = clusters, deeper the valley => denser the cluster
+* Cluster-ordering of the data points, ynested clusters can be seen (valleys in valley)
+
+### Grid-based
+
+* Partition data space into a finite number of cells => grid structure (multi-resolution)
+* Find clusters from the cells
+* Efficient, scalable : nb of cells << nb of data
+* Hard to handle highly irregular data distributions
+* Limited by predefined cell sizes, density threshold
+* Curse of dimensionality
+
+### STING
+
+* StatisticalInformationGrid
+* Cells at different levels of resolutions => tree structure
+
+### CLIQUE
+
+* Grid-based subspace clustering
+    + Grid-based : grid, density estimated with nb of points
+    + Density-based : dense if nb of points > model parameter
+    + Subspace clustering : subspace cluster = set of neighboring dense cells
+* Steps :
+    + identify subspaces that contain clusters (Apriori principles)
+    + identify clusters
+    + generate min descriptions for the clusters
+    
+    
+##  Methods for clustering validation
+
+* Clustering quality : goodness of clustering results 
+    + external : supervised, compare clustering with a priori / expert knowledge
+    + internal : unsupervised, derived from the data themselves (separation between clusters, how compat)
+    + relative measures : compare different clusterings (usually same algo / different parameters)
+* Clustering stability : sensitivity to various parameters
+* Clustering tendency : clustering suitable ? inherent grouping structure ?
+
+### External measures
+
+* Quality function Q(T, C) : 4 criteria
+    + cluster homogeneity : the purer, the better
+    + cluster completeness : objects in same true category in same cluster
+    + rag bag better than alien : penalization if heterogeneous object put into a pure cluster instead of into a "rag bag" (misc.)
+    + small cluster preservation : splitting small cluster more harmful than large cluster
+    
+* Matching-based measures :
+    + purity : k real clusters (j), r estimated clusters (i)
+        + purity for cluster $C_{i}$ : $pur_{i}=\frac{1}{n_{i}}max_{j=1}^{k}(n_{i,j})$
+        + total purity : $pur=\sum_{i=1}^{r}(\frac{n_{i}}{n}pur_{i})=\frac{1}{n}\sum_{i=1}^{r}(max_{j=1}^{k}(n_{i,j}))$
+        + perfect purity if purity = 1 and r = k
+        + different estimated clusters may have max purity for (reflect) the same true group ! => maximum-matching to solve this
+    + maximum-matching : 
+        + only one cluster can match one true group
+        + max purity with that constraint
+    + F-measure :
+        + precision $C_{i}$: cf purity $\frac{1}{n_{i}}max_{j=1}^{k}(n_{i,j})$
+        + recall $C_{i}$ : $\frac{n_{i,j}}{\sum_{i=1}^{r}{n_{i,j}}}$ with j as $arg max_{j}(n_{i,j})$
+          NB : share of obs in real cluster j recovered in i 
+        + F = harmonic mean precision and recall $F_{i}=\frac{2n_{i,j}}{(n_{i,j}+\sum_{i}(n_{i,j})}$ => F=$\frac{1}{r}\sum_{i=1}^{r}F_{i}$
+        
+* Entropy-based measures :
+    + Information theory measure used also in Datamining, ML,...
+    + Entropy of clustering C : $H(C)=-\sum_{i=1)}^{r}p(C_{i})log(p(C_{i}))$, $p(C_{i})=\frac{n_{i}}{n}$
+    + Entropy of partitioning T (real clusters) : $H(T)=-\sum_{j=1)}^{k}p(T_{j})log(p(T_{j}))$
+    + Entropy of T with respect to cluster $C_{i}$ : $H(T|C_{i})=-\sum_{j=1)}^{k}(\frac{n_{i,j}}{n_{i}})log(\frac{n_{i,j}}{n_{i}})$ 
+    + Conditional entropy of T with respect to clustering C : $H(T|C)=-\sum_{i=1}^{r}(\frac{n_{i}}{n})H(T|C_{i})=-\sum_{i=1}^{r}\sum_{j=1}^{k}p_{i,j}log(\frac{p_{i,j}}{p(C_{i})})$ 
+    + The more of a cluster's membership has split into different partitions, the higher the conditional entropy
+    + Perfect clustering : entropy = 0, worst = log(k)
+    + Normalized mutual information :
+        + Mutual info = amount of shared info between C and T : $I(C,T)=\sum_{i=1}^{r}\sum_{j=1}^{k}p_{i,j}log(\frac{p_{i,j}}{p(C_{i})p(T_{j})})$
+        + If C and T independant, $p_{i,j}=p(C_{i})p(T_{j})$ and I(C,T) = 0 ! No upper bound
+        + Normalized MI : min = 0, max = 1 $NMI(C,T)=\frac{I(C,T)}{\sqrt{H(C)H(T)}}$
+    
+* Pairwise measures :
+    + 4 possibilities of agreement between C and T : TP, TN, FP, FN
+    + TP = same C AND same T,.... FN = different C AND same T (**! nb of pairs not of observations !**)
+    + $TP=\sum_{i}\sum_{j}\binom{n_{i,j}}{2}$ : toutes les paires dans les mêmes clusters et les mêmes partitions
+    + $FN=\sum_{j}\binom{m_{j}}{2}-TP$ : toutes les paires dans différents clusters et les mêmes partitions (toutes les paires dans les mêmes partitions - TP)
+    + $FP=\sum_{i}\binom{n_{i}}{2}-TP$ toutes les paires dans les mêmes clusters et différentes partitions (toutes les paires dans les mêmes clusters - TP)
+    + $TN=N-(TP+FN+FP)$ toutes lea paires dans différents clusters et différentes partitions
+    + total nb of obs = $\binom{n}{2}$
+    + Jaccard Coefficient : TP / (TP + FP + FN)
+    + Rand Stat : (TP + TN) / N
+    + Fowlkes-Mallow measure : $\frac{TP}{\sqrt{(TP+FN)(TP+FP)}}$
+
+### Internal measures
+
+* Trade-off : max intra-cluser compactness and max inter-cluster separation
+    
+* BetaCV measure :
+    + W(S,R) = sum of weights of all edges (arr?te) with one vertex/node (sommet) in S and the other in R (p.ex. Euclidean distance)
+      NB : somme des distances entre tous les points de S et de R
+    + Sum of all intra-cluster weights over all cluster : $W_{in}=\frac{1}{2}\sum_{i=1}^{k}W(C_{i}, C_{i})$
+    + Sum of all inter-cluster weights over all cluster : $W_{out}=\frac{1}{2}\sum_{i=1}^{k}\sum_{j>1}W(C_{i}, C_{j})$
+    + $N_{in}$, $N_{out}$ = number of distinct edges (in or out)
+    + BetaCV measure : $BetaCV=\frac{W_{in}/N_{in}}{W_{out}/N_{out}}, ratio of mean intra-cluster dist to mean inter-clust dist
+
+* Normalized Cut : $\sum_{i=1}^{k}\frac{W(C_{i}, \bar{C_{i}})}{W(C_{i}, C_{i})+W(C_{i}, \bar{C_{i}})}$
+* Modularity : ....
+
+### Relative measures
+
+* Directly compare different clusterings (usually different parameters, same algo)
+* Silhouette coefficient as an internal measure :
+    + for each point $x_{i}$, $s_{i}=\frac{\mu_{out}^{min}(x_{i})-\mu_{in}(x_{i})}{max\{\mu_{out}^{min}(x_{i}),\mu_{in}(x_{i})\}}$
+    + $mu_{out}^{min}(x_{i})$ = mean distance between $x_{i}$ and points in the closest cluster
+    + $mu_{in}(x_{i})$ = mean distance between $x_{i}$ and other points in the same cluster
+    + Silhouette coefficient : $\frac{1}{n}\sum_{i}s_{i}$
+* Silhouette coefficient as a relative measure : estimate nb of clusters => pick k value with highest coefficient SC
+
+### Cluster stability
+
+* Clustering ok if stable results => samples, compare results
+* Useful to find good parameter values
+* Bootstrapping approach to find best value of k : 
+    + t samples of size n with replacement
+    + for each sample $D_{i}$, run same algo with k = 2,...max_k
+    + compare distances between all pairs of clusterings $C_{k}(D_{i})$ and $C_{k}(D_{j})$ => expected distance for k
+    + k* = k with smallest distance
+* Other methods to find right k :
+    + empirical method : $k=\sqrt{n/2}$, ok if small n
+    + elbow method : graph sum(within cluster variance) vs k => k* = when elbow (decrease gets slower)
+    + cross-validation : k* = best SSE on the "test" sets
+
+### Clustering tendency / Clusterability
+
+* Whether the data contains inherent group structure
+* Different algos = different definitions of clusters
+* Methods :
+    + spatial histograms (d-dimensionals) : histo data vs random sample => Kullback-Leibler divergence
+    + distance distribution : pairwise distance vs random sample
+    + Hopkins statistic
+
+
+```{r eval=F}
+
+tp<-choose(8,2)+choose(2,2)+choose(3,2)+choose(7,2)
+fn<-choose(11,2)+choose(9,2)-tp
+fp<-choose(10,2)+choose(10,2)-tp
+tn<-choose(20,2)-(tp+fn+fp)
+tp
+fn
+fp
+tn
+
+#ex program
+
+library(ggplot2)
+library(dplyr)
+
+list_f_cl<-list.files("G:/Documents/Christophe/Coursera/Cluster_analysis/", "clustering", full.names = T)
+list_p<-list.files("G:/Documents/Christophe/Coursera/Cluster_analysis/", "partition", full.names = T)
+
+cl<-read.table(list_p, sep=" ")
+colnames(cl)<-c("id", "part")
+
+for (f in seq_along(list_f_cl)){
+  tmp<-read.table(list_f_cl[f], sep=" ", stringsAsFactors = F)
+  colnames(tmp)<-c("id", paste0("cl_", f))
+  cl<-merge(cl, tmp, by="id")
+}
+
+summary(cl %>% mutate_if(is.numeric, as.factor))
+
+
+# You need to submit a file titled "scores.txt" consisting of 5 lines.  Each line contains two float numbers separated by a space.  The first number of the i-th line represents the NMI measure you calculated for the i-th test case i (i.e. "clustering_i.txt") with regard to the ground-truth given in "partitions.txt", and the second number of the i-th line represents the Jaccard measure you calculated for the i-th test case. 
+
+nmijac_fct<-function(vct,  nom){
+            tmp<-as.data.frame(table(cl$part, vct)) 
+            colnames(tmp)<-c("part", "cl", "nij")
+            tmp[]<-lapply(tmp, function(x) as.numeric(as.character(x)))
+            tmp<-tmp[tmp$nij>0,]
+            
+            # # Graphique
+            # print(
+            #         ggplot(tmp, aes(x=part, y=cl))+geom_raster(aes(fill=nij))+labs(title=paste0("Clustering : ", nom))
+            #   )
+            # 
+            print(table(cl$part, vct))
+            
+            # Jaccard
+            N<-choose(sum(tmp$nij), 2)
+            mj<-tmp %>% group_by(part) %>% summarise(mj=sum(nij))
+            ni<-tmp %>% group_by(cl) %>% summarise(ni=sum(nij))
+            TP<-sum(choose(tmp$nij, 2))
+            FN<-sum(choose(mj$mj,2))-TP
+            FP<-sum(choose(ni$ni,2))-TP
+            TN<-N-(TP+FN+FP)
+            jac<-TP / (TP + FP + FN)
+            
+            # NMI
+            n<-sum(tmp$nij)
+            pCi<-tmp %>% group_by(cl) %>% summarise(ni=sum(nij)) %>% ungroup() %>% mutate(pCi=ni/sum(ni))
+            H_C<- (-sum(pCi$pCi*log(pCi$pCi)))
+            pTj<-tmp %>% group_by(part) %>% summarise(mj=sum(nij)) %>% ungroup() %>% mutate(pTj=mj/sum(mj))
+            H_T<- (-sum(pTj$pTj*log(pTj$pTj)))
+            tmp<- tmp %>% mutate(pij=nij/sum(nij))
+            tmp<-merge(tmp, pCi, by="cl")
+            tmp<-merge(tmp, pTj, by="part")
+            I_C_T<- sum(tmp$pij*log(tmp$pij/(tmp$pCi*tmp$pTj)))
+            NMI<-I_C_T/(H_T*H_C)^(1/2)
+            return(round(c(NMI, jac),7)
+  
+}
+
+
+res<-matrix(rep(NA, 5*3), nrow=5)
+for (c in 3:ncol(cl)){
+  res[c-2,]<-c(c-2, nmijac_fct(vct=cl[,c], nom=colnames(cl)[c]))
+
+}
+res<-as.data.frame(res)
+
+write.table(res, file = "G:/Documents/Christophe/Coursera/Cluster_analysis/scores.txt", sep = " ", row.names = F, col.names = F)
+
+
+```
+
+
+
+
